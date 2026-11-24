@@ -1,3 +1,4 @@
+import { STATUS_CODES } from 'node:http';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { BrowserContext, HTTPRequest, HTTPResponse, Page } from 'puppeteer-core';
 import type { BrowserHost } from '../browser/browser-host.js';
@@ -114,7 +115,8 @@ export class SnapshotService implements Snapshotter {
       throw new ServiceError('upstream_error', 'The target sent no response.');
     }
     if (response.status() >= FIRST_ERROR_STATUS) {
-      const statusText = response.statusText();
+      // HTTP/2 responses carry no reason phrase, so fall back to the standard one.
+      const statusText = response.statusText() || (STATUS_CODES[response.status()] ?? '');
       throw new ServiceError('upstream_error', `Target returned ${response.status()}${statusText === '' ? '' : ` ${statusText}`}.`, {
         upstreamStatus: response.status(),
       });
