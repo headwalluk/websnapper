@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+.env
+*.sqlite
+*.sqlite-*
+
+# Working notes and code-analysis reports stay out of a github.com repo.
+dev-notes/
+code-analysis/

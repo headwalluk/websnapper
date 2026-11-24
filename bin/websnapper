@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+// Production entry point: runs the compiled CLI from dist/. In development use `npm run websnapper --`.
+import('../dist/cli/main.js');

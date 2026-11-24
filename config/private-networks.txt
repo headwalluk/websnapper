@@ -1,0 +1,8 @@
+# Loopback, RFC 1918 private ranges and link-local IPv4 (including cloud metadata)
+^https?://(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0)
+
+# Loopback, unique-local and link-local IPv6
+^https?://\[(::1?|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)
+
+# Hostnames under local-only suffixes
+^https?://[^/:]+\.(local|localdomain|internal|lan|home\.arpa)(:\d+)?(/|$)
