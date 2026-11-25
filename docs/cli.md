@@ -52,12 +52,20 @@ depends on `WEBSNAPPER_URL_POLICY`. The server picks up changes without a restar
 | `websnapper rule import <file>` | Adds every pattern in a file (one per line; a `#` line just above a pattern is its note). Duplicates are skipped; an invalid line aborts the whole import |
 | `websnapper rule export` | Prints the rules in the format `import` reads |
 
-`config/private-networks.txt` blocks loopback, private and link-local addresses and local-only
-host names. With `WEBSNAPPER_URL_POLICY=block-list`:
+`config/` holds rule templates for `WEBSNAPPER_URL_POLICY=block-list`. Import any combination;
+each one adds to the rules already there:
+
+| Template | Blocks |
+|---|---|
+| `config/private-networks.txt` | Loopback, private and link-local addresses, and local-only host names |
+| `config/https-only.txt` | Every `http://` URL: targets, redirects to plain HTTP and, with scope `all`, plain-HTTP subresources |
 
 ```
 websnapper rule import config/private-networks.txt
+websnapper rule import config/https-only.txt
 ```
+
+To drop a template later, find its rules with `rule list` and `rule remove` them.
 
 Rules see the URL, not the address a host name resolves to: a public host name pointing at a
 private address is not caught.

@@ -87,7 +87,8 @@ ProxyTimeout 60
 ## Exposed beyond the LAN
 
 - Keep `WEBSNAPPER_AUTH_MODE='token'`
-- Use `block-list` with `config/private-networks.txt`, or an `allow-list`, so the service can't be
+- Use `block-list` with `config/private-networks.txt` (and `config/https-only.txt` if nothing
+  internal is served over HTTPS), or an `allow-list`, so the service can't be
   used to look inside your network. Rules match URLs, not resolved addresses: a public host name
   pointing at a private address gets through
 - Keep `WEBSNAPPER_HOST='127.0.0.1'` and let the proxy terminate TLS

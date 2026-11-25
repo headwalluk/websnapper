@@ -1,0 +1,2 @@
+# Plain-HTTP targets, redirects and subresources (https:// only)
+^http://
