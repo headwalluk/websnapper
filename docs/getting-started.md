@@ -13,7 +13,7 @@ For operators: install, configure and take a first snapshot.
 ## Install
 
 ```
-git clone <repository> websnapper && cd websnapper
+git clone https://github.com/headwalluk/websnapper.git && cd websnapper
 npm ci
 npm run build
 cp .env.sample .env        # then edit
@@ -43,5 +43,5 @@ curl -H "Authorization: Bearer wsk_…" \
 
 To run without tokens, set `WEBSNAPPER_AUTH_MODE='open'` in `.env`.
 
-Next: [deployment](deployment.md) for systemd and reverse proxies, [configuration](configuration.md)
+Next: [deployment](deployment.md) for systemd, PM2 and reverse proxies, [configuration](configuration.md)
 for every setting, the [API](api.md) and the [CLI](cli.md).

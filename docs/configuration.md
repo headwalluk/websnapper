@@ -41,6 +41,9 @@ Only `http` and `https` targets are ever accepted. With `allow-list` and scope `
 render without anything they load from hosts that aren't allowed (CDNs, fonts); use scope
 `navigation` if that is a problem. An `allow-list` with no rules refuses everything.
 
+Rules are managed with `websnapper rule`; `config/` has ready-made block-list templates (private
+networks, HTTPS only). See the [CLI](cli.md#url-rules).
+
 ## Browser and pool
 
 | Setting | Default | |

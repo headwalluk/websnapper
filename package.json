@@ -1,6 +1,6 @@
 {
   "name": "websnapper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A small REST service that returns screenshots of web pages, rendered by a long-lived headless Chromium.",
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -38,6 +38,6 @@
     "eslint": "10.15.0",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.73.0"
+    "typescript-eslint": "8.74.0"
   }
 }

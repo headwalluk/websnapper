@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-25
+
+First release.
+
 ### Added
 
 - `GET /v1/snapshot`: PNG, JPEG or WebP snapshots by viewport preset, fixed size, or width with
@@ -21,3 +25,6 @@ All notable changes to this project are documented here. The format is based on
 - `config/https-only.txt` rule template, blocking plain-HTTP URLs
 - `bin/websnapper`: `serve`, `snap`, `viewports`, `key`, `rule`, `ban`, `db`, `doctor`, `config`
 - Hourly housekeeping of expired bans
+
+[Unreleased]: https://github.com/headwalluk/websnapper/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/headwalluk/websnapper/releases/tag/v1.0.0
