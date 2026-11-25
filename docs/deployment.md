@@ -23,7 +23,7 @@ Environment=WEBSNAPPER_ENV_FILE=/etc/websnapper/websnapper.env
 ExecStart=/usr/bin/node /opt/websnapper/bin/websnapper serve
 Restart=on-failure
 RestartSec=5
-TimeoutStopSec=30
+TimeoutStopSec=45
 NoNewPrivileges=true
 ProtectSystem=full
 PrivateTmp=true
@@ -55,9 +55,10 @@ pm2 logs websnapper
 ```
 
 Keep it to fork mode and one instance. Settings stay in `.env`; anything under `env` in the
-ecosystem file overrides them. `kill_timeout` gives in-flight snapshots time to finish and
-Chromium time to close before PM2 sends `SIGKILL`: keep it above
-`WEBSNAPPER_NAVIGATION_TIMEOUT_MS` plus `WEBSNAPPER_MAX_DELAY_MS`. For PM2 to start on boot,
+ecosystem file overrides them. On `SIGINT` (what PM2 sends) websnapper stops accepting
+connections, lets queued and in-flight snapshots finish, then closes Chromium. `kill_timeout`
+is how long PM2 waits for that before `SIGKILL`: keep it above `WEBSNAPPER_QUEUE_TIMEOUT_MS` +
+`WEBSNAPPER_NAVIGATION_TIMEOUT_MS` + `WEBSNAPPER_MAX_DELAY_MS` (40 seconds with the defaults). For PM2 to start on boot,
 run `pm2 startup` once and follow its instructions.
 
 ## Behind Nginx

@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { VIEWPORT_PRESETS } from '../browser/viewports.js';
+import { availableViewports } from '../browser/viewports.js';
 import type { Config } from '../config.js';
 import { ERROR_CODES, ServiceError, toServiceError } from '../errors.js';
 import { resolveClientIp } from '../guard/client-ip.js';
 import type { RequestGuard } from '../guard/request-guard.js';
 import type { Logger } from '../logger.js';
+import { redactedError, redactUrl } from '../net/redact-url.js';
 import { parseSnapshotRequest } from '../services/snapshot-request.js';
 import type { Snapshotter } from '../services/snapshot-service.js';
 import { sendError, sendImage, sendJson, sendText } from './responses.js';
@@ -22,9 +23,13 @@ export interface ServerDependencies {
   now?: () => number;
 }
 
-/** Reduces a URL to origin and path for logs, since query strings can carry credentials. */
-export function redactUrl(url: URL): string {
-  return `${url.origin}${url.pathname}${url.search === '' ? '' : '?…'}`;
+/**
+ * Parses an origin-form request target (/path?query). Anything else (absolute-form, '*', or a
+ * target the URL parser rejects) is null, so it never reaches routing or throws in the listener.
+ */
+export function parseRequestTarget(target: string | undefined): URL | null {
+  const candidate = `${PLACEHOLDER_ORIGIN}${target ?? ''}`;
+  return target?.startsWith('/') === true && URL.canParse(candidate) ? new URL(candidate) : null;
 }
 
 /** Returns an AbortSignal that fires if the client goes away before the response is sent. */
@@ -45,8 +50,11 @@ export function createRequestHandler(dependencies: ServerDependencies): (request
   const now = dependencies.now ?? Date.now;
 
   /** Routes one request. Throws ServiceError for every failure. */
-  const route = async (request: IncomingMessage, response: ServerResponse, url: URL, ip: string): Promise<void> => {
+  const route = async (request: IncomingMessage, response: ServerResponse, url: URL | null, ip: string): Promise<void> => {
     guard.admit(ip, now());
+    if (url === null) {
+      throw new ServiceError('invalid_request', 'The request target must be a path, such as /v1/snapshot?url=….');
+    }
     if (request.method !== 'GET') {
       throw new ServiceError('method_not_allowed', 'Only GET is supported.');
     }
@@ -54,7 +62,7 @@ export function createRequestHandler(dependencies: ServerDependencies): (request
       sendText(response, snapshotter.isReady() ? 200 : ERROR_CODES.unavailable.status, snapshotter.isReady() ? 'ok\n' : 'starting\n');
     } else if (url.pathname === ROUTES.viewports) {
       guard.authenticate(request.headers.authorization, ip, now());
-      sendJson(response, 200, { viewports: [...VIEWPORT_PRESETS.values()] });
+      sendJson(response, 200, { viewports: availableViewports(config.snapshot) });
     } else if (url.pathname === ROUTES.snapshot) {
       guard.authenticate(request.headers.authorization, ip, now());
       const snapshotRequest = parseSnapshotRequest(url.searchParams, config.snapshot);
@@ -71,13 +79,13 @@ export function createRequestHandler(dependencies: ServerDependencies): (request
 
   return (request, response) => {
     const startedAt = now();
-    const url = new URL(request.url ?? '/', PLACEHOLDER_ORIGIN);
+    const url = parseRequestTarget(request.url);
     const ip = resolveClientIp(request.socket.remoteAddress, request.headers['x-forwarded-for']?.toString(), config.trustedProxies);
     route(request, response, url, ip)
       .catch((error: unknown) => {
         const serviceError = toServiceError(error);
         if (serviceError.code === 'internal_error') {
-          logger.error(`Unhandled error for ${request.method} ${url.pathname}`, { error, ip });
+          logger.error(`Unhandled error for ${request.method} ${url?.pathname ?? '(invalid target)'}`, { error: redactedError(error), ip });
         }
         if (response.headersSent || response.destroyed) {
           logger.debug(`Client ${ip} left before the response was sent.`, { error: serviceError.message });
@@ -88,12 +96,12 @@ export function createRequestHandler(dependencies: ServerDependencies): (request
           }
           sendError(response, serviceError, extraHeaders);
         }
-        guard.recordFailure(ip, serviceError.code, now());
+        guard.recordFailure(ip, serviceError, now());
       })
       .finally(() => {
-        const target = url.searchParams.get('url');
-        const targetText = target !== null && URL.canParse(target) ? ` ${redactUrl(new URL(target))}` : '';
-        logger.info(`${ip} ${request.method} ${url.pathname} ${response.statusCode} ${now() - startedAt}ms${targetText}`);
+        const target = url?.searchParams.get('url') ?? null;
+        const targetText = target !== null && URL.canParse(target) ? ` ${redactUrl(target)}` : '';
+        logger.info(`${ip} ${request.method} ${url?.pathname ?? '(invalid target)'} ${response.statusCode} ${now() - startedAt}ms${targetText}`);
       })
       .catch((error: unknown) => {
         logger.error('Failed while finishing a response.', { error });

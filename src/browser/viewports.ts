@@ -1,4 +1,8 @@
 import { KnownDevices } from 'puppeteer-core';
+import type { Config } from '../config.js';
+
+/** The CSS-pixel limits a viewport must fit inside. */
+export type ViewportLimits = Pick<Config['snapshot'], 'maxWidthPx' | 'maxHeightPx'>;
 
 export interface ViewportPreset {
   slug: string;
@@ -52,3 +56,13 @@ function buildPresets(): Map<string, ViewportPreset> {
 }
 
 export const VIEWPORT_PRESETS: ReadonlyMap<string, ViewportPreset> = buildPresets();
+
+/** Whether a preset fits inside the configured width and height limits. */
+export function presetFits(preset: ViewportPreset, limits: ViewportLimits): boolean {
+  return preset.width <= limits.maxWidthPx && preset.height <= limits.maxHeightPx;
+}
+
+/** The presets this server's limits allow, in table order. */
+export function availableViewports(limits: ViewportLimits): ViewportPreset[] {
+  return [...VIEWPORT_PRESETS.values()].filter((preset) => presetFits(preset, limits));
+}

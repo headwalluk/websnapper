@@ -116,6 +116,9 @@ test('bans lift themselves at expiry and can be lifted early', () => {
     assert.equal(liftBan(database, '198.51.100.9', NOW), true);
     assert.equal(liftBan(database, '198.51.100.9', NOW), false);
     assert.throws(() => addBan(database, 'not-an-ip', 'x', 1, NOW), ServiceError);
+    addBan(database, '2001:DB8:0:0::1', 'expanded', 60_000, NOW);
+    assert.equal(findActiveBan(database, '2001:db8::1', NOW + 1)?.reason, 'expanded');
+    assert.equal(liftBan(database, '2001:db8:0::1', NOW + 1), true);
   } finally {
     cleanUp();
   }
@@ -131,6 +134,18 @@ test('housekeeping deletes expired bans and records its run', () => {
     assert.equal(run?.result, 'ok');
     const remaining = database.prepare('SELECT COUNT(*) AS total FROM bans').get();
     assert.equal(remaining === undefined ? -1 : numberColumn(remaining, 'total'), 1);
+  } finally {
+    cleanUp();
+  }
+});
+
+test('keep-later bans extend an existing ban but never shorten it', () => {
+  const { database, cleanUp } = testDatabase();
+  try {
+    addBan(database, '198.51.100.9', 'long', 600_000, NOW);
+    assert.equal(addBan(database, '198.51.100.9', 'short', 60_000, NOW + 1, 'keep-later').reason, 'long');
+    assert.equal(addBan(database, '198.51.100.9', 'longer', 6_000_000, NOW + 2, 'keep-later').reason, 'longer');
+    assert.equal(addBan(database, '198.51.100.9', 'operator', 1000, NOW + 3).reason, 'operator');
   } finally {
     cleanUp();
   }

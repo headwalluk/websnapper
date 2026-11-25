@@ -22,7 +22,7 @@ Renders a page and returns the image.
 | Parameter | Values | Default |
 |---|---|---|
 | `url` | absolute `http` or `https` URL, percent-encoded | required |
-| `viewport` | a preset slug from `/v1/viewports` | `desktop`, unless `width` is given |
+| `viewport` | a preset slug from `/v1/viewports` (only presets within the server's size limits are offered) | `desktop`, unless `width` is given |
 | `width` | CSS pixels, 1 to the configured maximum | from the preset |
 | `height` | CSS pixels, 1 to the configured maximum | from the preset |
 | `full` | `1` to capture the full rendered height, `0` for the viewport only | `0` |
@@ -38,6 +38,8 @@ Rules:
 - Device presets (`iphone-11`, `ipad-pro`, `pixel-5`, …) set the device's user agent, touch
   and pixel ratio, so `iphone-11` returns an 828×1656 image (414×828 at 2×)
 - Full-page captures are cut off at the server's maximum height
+- A preset larger than the server's width or height limit is refused with 400, as is a bare URL
+  when the default `desktop` preset (1920×1080) is over the limit
 - Unknown or repeated parameters are refused with 400
 
 Examples:
@@ -61,7 +63,8 @@ Examples:
 
 ## `GET /v1/viewports`
 
-JSON: `{ "viewports": [ { "slug", "label", "width", "height", "deviceScaleFactor", "isMobile", "hasTouch", "isLandscape", "userAgent" } ] }`.
+JSON: `{ "viewports": [ { "slug", "label", "width", "height", "deviceScaleFactor", "isMobile", "hasTouch", "isLandscape", "userAgent" } ] }`,
+listing the presets that fit the server's `WEBSNAPPER_MAX_WIDTH_PX` and `WEBSNAPPER_MAX_HEIGHT_PX`.
 
 ## `GET /health`
 
@@ -89,7 +92,7 @@ stable code. Scripts should branch on the status or that header, never on the me
 | 403 | `url_blocked` | the URL policy refuses the target, or the target redirected somewhere it refuses |
 | 404 | `not_found` | no such route |
 | 405 | `method_not_allowed` | anything but `GET`. Sent with `Allow: GET` |
-| 429 | `rate_limited` | too many requests, or the address is temporarily banned. Sent with `Retry-After` |
+| 429 | `rate_limited` | too many requests, or the address is temporarily banned. Sent with `Retry-After`. A request refused by a ban doesn't count towards another |
 | 500 | `internal_error` | something unexpected; details are in the server log |
 | 502 | `upstream_error` | the target answered 4xx/5xx (status in `X-Websnapper-Upstream-Status`), or could not be reached (DNS, connection, TLS) |
 | 503 | `unavailable` | every browser slot is busy and the queue is full, or the wait for a slot timed out. Sent with `Retry-After` |

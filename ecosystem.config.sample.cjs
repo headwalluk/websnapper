@@ -14,8 +14,9 @@ module.exports = {
       exec_mode: 'fork',
       instances: 1,
 
-      // Time to finish in-flight snapshots and close Chromium after SIGINT, before SIGKILL.
-      kill_timeout: 30000,
+      // Time to finish in-flight snapshots and close Chromium after SIGINT, before SIGKILL. Keep it
+      // above WEBSNAPPER_QUEUE_TIMEOUT_MS + WEBSNAPPER_NAVIGATION_TIMEOUT_MS + WEBSNAPPER_MAX_DELAY_MS.
+      kill_timeout: 45000,
 
       // Back off on crash loops (Chromium missing, port in use) instead of restarting instantly.
       exp_backoff_restart_delay: 1000,

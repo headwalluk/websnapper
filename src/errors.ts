@@ -19,6 +19,8 @@ export interface ServiceErrorDetails {
   upstreamStatus?: number;
   /** Seconds the client should wait, for rate_limited and unavailable. */
   retryAfterSeconds?: number;
+  /** Set on rate_limited when an existing ban refused the request; such requests earn no strikes. */
+  banned?: boolean;
 }
 
 /** A failure with a stable code that callers map to an HTTP status or exit code. */

@@ -1,4 +1,4 @@
-import { BrowserHost } from './browser/browser-host.js';
+import { BrowserHost, chromiumLauncher } from './browser/browser-host.js';
 import { SnapshotPool } from './browser/snapshot-pool.js';
 import type { Config } from './config.js';
 import { UrlPolicy } from './guard/url-policy.js';
@@ -19,9 +19,14 @@ export function createUrlPolicy(config: Config, database: Database): UrlPolicy {
   return new UrlPolicy(config.urlPolicy.mode, config.urlPolicy.scope, () => listRules(database), () => dataVersion(database));
 }
 
+export interface RuntimeOptions {
+  /** False when the caller handles SIGINT/SIGTERM/SIGHUP and closes the browser itself (serve). */
+  puppeteerHandlesSignals: boolean;
+}
+
 /** Wires the browser host, pool, policy and snapshot service together. Chromium launches lazily. */
-export function createSnapshotRuntime(config: Config, database: Database, logger: Logger): SnapshotRuntime {
-  const host = new BrowserHost(config.browser, logger.child('browser'));
+export function createSnapshotRuntime(config: Config, database: Database, logger: Logger, options: RuntimeOptions = { puppeteerHandlesSignals: true }): SnapshotRuntime {
+  const host = new BrowserHost(config.browser, logger.child('browser'), chromiumLauncher(options.puppeteerHandlesSignals));
   const pool = new SnapshotPool(config.pool.size, config.pool.queueMax, config.pool.queueTimeoutMs);
   const policy = createUrlPolicy(config, database);
   policy.refresh();

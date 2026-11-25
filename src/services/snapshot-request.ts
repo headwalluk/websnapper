@@ -1,4 +1,4 @@
-import { DEFAULT_PRESET_SLUG, VIEWPORT_PRESETS } from '../browser/viewports.js';
+import { DEFAULT_PRESET_SLUG, presetFits, VIEWPORT_PRESETS, type ViewportPreset } from '../browser/viewports.js';
 import { IMAGE_FORMATS, type Config, type ImageFormat } from '../config.js';
 import { ServiceError } from '../errors.js';
 
@@ -76,25 +76,33 @@ function viewportFrom(parameters: URLSearchParams, fullPage: boolean, limits: Co
     throw new Error(`The default viewport preset "${DEFAULT_PRESET_SLUG}" is missing.`);
   }
   let viewport: SnapshotViewport = fallback;
+  let preset: ViewportPreset | undefined = fallback;
   if (slug !== null && hasCustomSize) {
     problems.push('Give either viewport or width/height, not both.');
   } else if (slug !== null) {
-    const preset = VIEWPORT_PRESETS.get(slug);
+    preset = VIEWPORT_PRESETS.get(slug);
     if (preset === undefined) {
       problems.push(`Unknown viewport "${slug}". GET /v1/viewports lists them.`);
     } else {
       viewport = preset;
     }
   } else if (hasCustomSize) {
+    preset = undefined;
     if (!parameters.has('width')) {
       problems.push('width is required when height is given.');
     }
     if (!parameters.has('height') && !fullPage) {
       problems.push('Give height, or full=1 to capture the full rendered height.');
     }
-    viewport = { ...fallback, width: width ?? fallback.width, height: height ?? fallback.height, userAgent: null };
+    // A width-only full-page capture starts from the default height, kept inside the limit.
+    const startHeight = Math.min(fallback.height, limits.maxHeightPx);
+    viewport = { ...fallback, width: width ?? fallback.width, height: height ?? startHeight, userAgent: null };
   } else {
     // No size given: the default preset.
+  }
+  if (preset !== undefined && !presetFits(preset, limits)) {
+    problems.push(`Viewport "${preset.slug}" (${preset.width}x${preset.height}) is larger than this server allows `
+      + `(${limits.maxWidthPx}x${limits.maxHeightPx}). Choose another from GET /v1/viewports, or give width and height.`);
   }
   return viewport;
 }

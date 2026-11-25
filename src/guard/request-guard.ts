@@ -51,6 +51,7 @@ export class RequestGuard {
     if (ban !== null) {
       throw new ServiceError('rate_limited', 'This address is temporarily blocked.', {
         retryAfterSeconds: Math.ceil((ban.expiresAt - now) / MS_PER_SECOND),
+        banned: true,
       });
     }
     const retryAfterSeconds = this.limiter.consume(ip, now);
@@ -78,14 +79,19 @@ export class RequestGuard {
   }
 
   /** Records a strike for a failed request, banning the client once the threshold is reached. */
-  recordFailure(ip: string, code: ErrorCode, now: number): void {
-    if (!STRIKE_CODES.has(code) || this.isExempt(ip)) {
+  recordFailure(ip: string, error: ServiceError, now: number): void {
+    // A request refused by an existing ban earns no strike, so it can't renew or shorten that ban.
+    if (!STRIKE_CODES.has(error.code) || error.details.banned === true || this.isExempt(ip)) {
       return;
     }
     if (this.limiter.strike(ip, now)) {
       const durationMs = this.config.rateLimit.banDurationSeconds * MS_PER_SECOND;
-      addBan(this.database, ip, BAN_REASON, durationMs, now);
-      this.logger.warn(`Banned client ${ip} for ${this.config.rateLimit.banDurationSeconds}s`, { lastError: code });
+      const ban = addBan(this.database, ip, BAN_REASON, durationMs, now, 'keep-later');
+      if (ban.createdAt === now) {
+        this.logger.warn(`Banned client ${ip} for ${this.config.rateLimit.banDurationSeconds}s`, { lastError: error.code });
+      } else {
+        this.logger.info(`Client ${ip} reached the ban threshold; its existing, longer ban stands.`, { lastError: error.code });
+      }
     }
   }
 

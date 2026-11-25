@@ -20,7 +20,7 @@ and is skipped when `WEBSNAPPER_CHROMIUM_PATH` doesn't exist. No test touches th
 ```
 src/config.ts            the only reader of process.env and .env
 src/errors.ts            error codes → HTTP status (the API contract)
-src/net/                 IP and CIDR matching
+src/net/                 IP and CIDR matching, URL redaction for logs
 src/guard/               URL policy, rate limiter, client IP, auth and bans per request
 src/browser/             Chromium host, the concurrency pool, viewport presets
 src/services/            snapshots, keys, rules and bans; shared by HTTP and CLI

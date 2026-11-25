@@ -1,6 +1,6 @@
 {
   "name": "websnapper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A small REST service that returns screenshots of web pages, rendered by a long-lived headless Chromium.",
   "type": "module",
   "license": "AGPL-3.0-only",

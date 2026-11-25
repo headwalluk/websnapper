@@ -35,12 +35,25 @@ export function findActiveBan(database: Database, ip: string, now: number): Ban 
   return row === undefined ? null : toBan(row);
 }
 
-/** Bans an address until now + durationMs, replacing any existing ban. */
-export function addBan(database: Database, ip: string, reason: string, durationMs: number, now: number): Ban {
-  const ban: Ban = { ip: checkedAddress(ip), reason, createdAt: now, expiresAt: now + durationMs };
-  database.prepare('INSERT OR REPLACE INTO bans (ip, reason, created_at, expires_at) VALUES (?, ?, ?, ?)')
-    .run(ban.ip, ban.reason, ban.createdAt, ban.expiresAt);
-  return ban;
+/** How a new ban meets an existing one: the operator replaces it; automatic bans never shorten it. */
+export type BanMerge = 'replace' | 'keep-later';
+
+const BAN_UPSERT_SQL: Record<BanMerge, string> = {
+  'replace': 'INSERT OR REPLACE INTO bans (ip, reason, created_at, expires_at) VALUES (?, ?, ?, ?)',
+  'keep-later': `INSERT INTO bans (ip, reason, created_at, expires_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT (ip) DO UPDATE SET reason = excluded.reason, created_at = excluded.created_at, expires_at = excluded.expires_at
+    WHERE excluded.expires_at > bans.expires_at`,
+};
+
+/** Bans an address until now + durationMs and returns the ban now in force. */
+export function addBan(database: Database, ip: string, reason: string, durationMs: number, now: number, merge: BanMerge = 'replace'): Ban {
+  const address = checkedAddress(ip);
+  database.prepare(BAN_UPSERT_SQL[merge]).run(address, reason, now, now + durationMs);
+  const row = database.prepare('SELECT * FROM bans WHERE ip = ?').get(address);
+  if (row === undefined) {
+    throw new Error(`The ban on ${address} was not stored.`);
+  }
+  return toBan(row);
 }
 
 /** Lifts a ban; false when the address isn't banned. */

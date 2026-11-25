@@ -7,6 +7,7 @@ import type { Config, ImageFormat } from '../config.js';
 import { ServiceError } from '../errors.js';
 import type { UrlPolicy } from '../guard/url-policy.js';
 import type { Logger } from '../logger.js';
+import { redactedError, redactUrl } from '../net/redact-url.js';
 import type { SnapshotRequest } from './snapshot-request.js';
 
 export const CONTENT_TYPES: Record<ImageFormat, string> = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -85,13 +86,13 @@ export class SnapshotService implements Snapshotter {
         : null;
       const resolution = verdict === null || verdict.allowed ? intercepted.continue() : intercepted.abort('blockedbyclient');
       if (verdict !== null && !verdict.allowed) {
-        this.logger.debug(`Blocked ${isNavigation ? 'navigation' : 'request'} to ${intercepted.url()}`, { reason: verdict.reason });
+        this.logger.debug(`Blocked ${isNavigation ? 'navigation' : 'request'} to ${redactUrl(intercepted.url())}`, { reason: verdict.reason });
         if (isNavigation && intercepted.frame() === page.mainFrame()) {
           blocked.push({ url: intercepted.url(), reason: verdict.reason });
         }
       }
       resolution.catch((error: unknown) => {
-        this.logger.debug('Could not resolve an intercepted request; the page was probably closed.', { error });
+        this.logger.debug('Could not resolve an intercepted request; the page was probably closed.', { error: redactedError(error) });
       });
     });
   }
@@ -137,7 +138,7 @@ export class SnapshotService implements Snapshotter {
     } else if (netError !== undefined) {
       mapped = new ServiceError('upstream_error', `Could not load the target: ${netError}.`);
     } else {
-      this.logger.warn('Navigation failed unexpectedly.', { error });
+      this.logger.warn('Navigation failed unexpectedly.', { error: redactedError(error) });
       mapped = new ServiceError('upstream_error', 'Could not load the target.');
     }
     return mapped;
@@ -164,7 +165,7 @@ export class SnapshotService implements Snapshotter {
   private async render(context: BrowserContext, request: SnapshotRequest, signal?: AbortSignal): Promise<Omit<SnapshotResult, 'renderMs'>> {
     const onAbort = (): void => {
       context.close().catch((error: unknown) => {
-        this.logger.debug('Closing the context of an abandoned snapshot failed.', { error });
+        this.logger.debug('Closing the context of an abandoned snapshot failed.', { error: redactedError(error) });
       });
     };
     signal?.addEventListener('abort', onAbort, { once: true });

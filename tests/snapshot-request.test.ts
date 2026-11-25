@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { availableViewports, VIEWPORT_PRESETS } from '../src/browser/viewports.js';
 import { ServiceError } from '../src/errors.js';
 import { parseSnapshotRequest } from '../src/services/snapshot-request.js';
 import { testConfig } from './helpers/fixtures.js';
@@ -49,4 +50,16 @@ test('quality with png, width without height, and repeated parameters are refuse
   assert.throws(() => parse('url=https://example.com/&width=800'), /full=1/);
   assert.throws(() => parse('url=https://example.com/&url=https://example.org/'), /more than once/);
   assert.throws(() => parse(''), /url is required/);
+});
+
+test('presets and implicit sizes stay inside lowered limits', () => {
+  const limits = testConfig({ WEBSNAPPER_MAX_WIDTH_PX: '1400', WEBSNAPPER_MAX_HEIGHT_PX: '720' }).snapshot;
+  const parseWith = (query: string): ReturnType<typeof parseSnapshotRequest> => parseSnapshotRequest(new URLSearchParams(query), limits);
+  assert.throws(() => parseWith('url=https://example.com/'), (error: unknown) => error instanceof ServiceError && /"desktop" \(1920x1080\)/.test(error.message));
+  assert.throws(() => parseWith('url=https://example.com/&viewport=laptop'), ServiceError);
+  assert.equal(parseWith('url=https://example.com/&width=1280&full=1').viewport.height, 720);
+  assert.equal(parseWith('url=https://example.com/&width=1280&height=720').viewport.width, 1280);
+  assert.ok(availableViewports(limits).every((preset) => preset.width <= 1400 && preset.height <= 720));
+  assert.ok(availableViewports(limits).length < availableViewports(LIMITS).length);
+  assert.equal(availableViewports(LIMITS).length, VIEWPORT_PRESETS.size);
 });

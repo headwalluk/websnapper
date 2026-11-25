@@ -5,7 +5,7 @@ import { resolveClientIp } from '../src/guard/client-ip.js';
 import { RateLimiter } from '../src/guard/rate-limiter.js';
 import { bearerToken, RequestGuard } from '../src/guard/request-guard.js';
 import { parseAddressList } from '../src/net/address-list.js';
-import { findActiveBan } from '../src/services/ban-service.js';
+import { addBan, findActiveBan } from '../src/services/ban-service.js';
 import { createKey, listKeys, revokeKey } from '../src/services/key-service.js';
 import { quietLogger, testConfig, testDatabase } from './helpers/fixtures.js';
 
@@ -81,7 +81,7 @@ test('repeated failures ban the client in the database until the ban expires', (
     const config = testConfig({ WEBSNAPPER_BAN_STRIKES: '3', WEBSNAPPER_BAN_DURATION_SECONDS: '60' });
     const guard = new RequestGuard(config, database, quietLogger());
     for (const offset of [0, 1, 2]) {
-      guard.recordFailure(CLIENT, 'not_found', START + offset);
+      guard.recordFailure(CLIENT, new ServiceError('not_found', 'No such route.'), START + offset);
     }
     assert.notEqual(findActiveBan(database, CLIENT, START + 10), null);
     assert.throws(() => guard.admit(CLIENT, START + 10), (error: unknown) => error instanceof ServiceError && error.details.retryAfterSeconds === 60);
@@ -96,10 +96,56 @@ test('upstream failures and exempt addresses never earn strikes', () => {
   try {
     const config = testConfig({ WEBSNAPPER_BAN_STRIKES: '1', WEBSNAPPER_RATE_LIMIT_EXEMPT: '192.0.2.0/24' });
     const guard = new RequestGuard(config, database, quietLogger());
-    guard.recordFailure(CLIENT, 'upstream_error', START);
-    guard.recordFailure('192.0.2.5', 'unauthorised', START);
+    guard.recordFailure(CLIENT, new ServiceError('upstream_error', 'Target returned 500.'), START);
+    guard.recordFailure('192.0.2.5', new ServiceError('unauthorised', 'No token.'), START);
     assert.equal(findActiveBan(database, CLIENT, START), null);
     assert.equal(findActiveBan(database, '192.0.2.5', START), null);
+  } finally {
+    cleanUp();
+  }
+});
+
+/** Calls admit and returns the ServiceError it throws. */
+function admitError(guard: RequestGuard, ip: string, now: number): ServiceError {
+  let thrown: unknown = null;
+  try {
+    guard.admit(ip, now);
+  } catch (error) {
+    thrown = error;
+  }
+  assert.ok(thrown instanceof ServiceError, 'admit should have refused the client');
+  return thrown;
+}
+
+test('requests refused by a ban earn no strikes, so they cannot renew the ban', () => {
+  const { database, cleanUp } = testDatabase();
+  try {
+    const config = testConfig({ WEBSNAPPER_BAN_STRIKES: '2', WEBSNAPPER_BAN_DURATION_SECONDS: '60' });
+    const guard = new RequestGuard(config, database, quietLogger());
+    guard.recordFailure(CLIENT, new ServiceError('not_found', 'x'), START);
+    guard.recordFailure(CLIENT, new ServiceError('not_found', 'x'), START + 1);
+    const expiresAt = findActiveBan(database, CLIENT, START + 2)?.expiresAt;
+    for (const offset of [10, 20, 30, 40]) {
+      const refusal = admitError(guard, CLIENT, START + offset);
+      assert.equal(refusal.code, 'rate_limited');
+      assert.equal(refusal.details.banned, true);
+      guard.recordFailure(CLIENT, refusal, START + offset);
+    }
+    assert.equal(findActiveBan(database, CLIENT, START + 50)?.expiresAt, expiresAt);
+  } finally {
+    cleanUp();
+  }
+});
+
+test('an automatic ban never shortens a longer manual ban', () => {
+  const { database, cleanUp } = testDatabase();
+  try {
+    const config = testConfig({ WEBSNAPPER_BAN_STRIKES: '1', WEBSNAPPER_BAN_DURATION_SECONDS: '60' });
+    const guard = new RequestGuard(config, database, quietLogger());
+    const manual = addBan(database, CLIENT, 'Banned by the operator.', 86_400_000, START);
+    // A strike recorded for an older, pre-ban request must leave the manual ban as it was.
+    guard.recordFailure(CLIENT, new ServiceError('not_found', 'x'), START + 1);
+    assert.deepEqual(findActiveBan(database, CLIENT, START + 2), manual);
   } finally {
     cleanUp();
   }

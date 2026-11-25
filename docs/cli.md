@@ -11,7 +11,7 @@ Every command accepts `--json` (one JSON object on stdout) and `--help`.
 
 | Command | Does |
 |---|---|
-| `websnapper serve` | Runs the server until SIGINT or SIGTERM. Refuses to start while migrations are pending |
+| `websnapper serve` | Runs the server until SIGINT, SIGTERM or SIGHUP, then finishes in-flight snapshots and closes Chromium. Refuses to start while migrations are pending |
 | `websnapper doctor` | Checks the config, database, migrations, keys, rules and that Chromium launches |
 | `websnapper config` | Prints the effective configuration |
 | `websnapper db migrate` | Creates or upgrades the database schema. Run after install and after every upgrade |
@@ -27,7 +27,7 @@ websnapper snap <url> --output <file|-> [--viewport <slug> | --width <px> [--hei
 Takes a snapshot through the same code the server uses (URL policy included), launching its own
 Chromium. `--output -` writes the image to stdout. A failure writes no file.
 
-`websnapper viewports` lists the presets.
+`websnapper viewports` lists the presets that fit the configured size limits.
 
 ## API keys
 

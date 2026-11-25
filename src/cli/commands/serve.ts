@@ -14,9 +14,9 @@ import { withDatabase } from '../helpers.js';
 /** Once-only work (housekeeping) runs on this PM2 instance; NODE_APP_INSTANCE defaults to '0'. */
 const PRIMARY_INSTANCE = '0';
 const SWEEP_INTERVAL_MS = 60_000;
-const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
+const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
 
-/** Resolves when the process receives SIGINT or SIGTERM. */
+/** Resolves when the process receives SIGINT, SIGTERM or SIGHUP. */
 function waitForShutdownSignal(logger: Logger): Promise<void> {
   return new Promise((resolvePromise) => {
     const onSignal = (signal: string): void => {
@@ -55,7 +55,8 @@ async function serve(config: Config, database: Database): Promise<CommandResult>
   if (config.authMode === 'open') {
     logger.warn('Authentication is OFF (WEBSNAPPER_AUTH_MODE=open). Anyone who can reach this port can take snapshots.');
   }
-  const runtime = createSnapshotRuntime(config, database, logger);
+  // serve drains requests on a signal and then closes Chromium, so Puppeteer must not act on it.
+  const runtime = createSnapshotRuntime(config, database, logger, { puppeteerHandlesSignals: false });
   if (config.urlPolicy.mode === 'allow-list' && runtime.policy.ruleCount() === 0) {
     logger.warn('URL policy is allow-list with no rules, so every snapshot will be refused.');
   }
@@ -91,7 +92,7 @@ async function listenUntilShutdown(config: Config, database: Database, runtime: 
 
 export const serveCommand: Command = {
   path: ['serve'],
-  summary: 'Run the HTTP server until SIGINT or SIGTERM.',
+  summary: 'Run the HTTP server until SIGINT, SIGTERM or SIGHUP.',
   usage: 'websnapper serve',
   run: ({ config }) => withDatabase(config, (database) => serve(config, database)),
 };

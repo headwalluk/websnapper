@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { connect, type AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
 import { ServiceError } from '../src/errors.js';
 import { RequestGuard } from '../src/guard/request-guard.js';
@@ -113,4 +113,26 @@ test('viewports are listed as JSON', async () => {
   const response = await get('/v1/viewports');
   const body = await response.json() as { viewports: { slug: string }[] };
   assert.ok(body.viewports.some((viewport) => viewport.slug === 'iphone-11'));
+});
+
+/** Sends a raw request line, which fetch would normalise, and returns the response status line. */
+async function rawStatusLine(requestLine: string): Promise<string> {
+  const port = (server.address() as AddressInfo).port;
+  const socket = connect(port, '127.0.0.1');
+  await once(socket, 'connect');
+  socket.end(`${requestLine}\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`);
+  let received = '';
+  socket.setEncoding('utf8');
+  for await (const chunk of socket) {
+    received += String(chunk);
+  }
+  return received.split('\r\n')[0] ?? '';
+}
+
+test('request targets the URL parser rejects get an error page instead of crashing the server', async () => {
+  assert.equal(await rawStatusLine('GET // HTTP/1.1'), 'HTTP/1.1 404 Not Found');
+  assert.equal(await rawStatusLine('GET //[ HTTP/1.1'), 'HTTP/1.1 404 Not Found');
+  assert.equal(await rawStatusLine('GET http://[ HTTP/1.1'), 'HTTP/1.1 400 Bad Request');
+  assert.equal(await rawStatusLine('GET http://example.com/health HTTP/1.1'), 'HTTP/1.1 400 Bad Request');
+  assert.equal((await get('/health', false)).status, 200);
 });
