@@ -44,11 +44,21 @@ journalctl -u websnapper -f
 
 ## PM2
 
+`ecosystem.config.sample.cjs` is a starting point. Copy it to `ecosystem.config.cjs` (untracked,
+so `git pull` leaves your edits alone), review it, then start it from the checkout:
+
 ```
-pm2 start bin/websnapper --name websnapper --interpreter node -- serve
+cp ecosystem.config.sample.cjs ecosystem.config.cjs
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 logs websnapper
 ```
 
-Fork mode, one instance.
+Keep it to fork mode and one instance. Settings stay in `.env`; anything under `env` in the
+ecosystem file overrides them. `kill_timeout` gives in-flight snapshots time to finish and
+Chromium time to close before PM2 sends `SIGKILL`: keep it above
+`WEBSNAPPER_NAVIGATION_TIMEOUT_MS` plus `WEBSNAPPER_MAX_DELAY_MS`. For PM2 to start on boot,
+run `pm2 startup` once and follow its instructions.
 
 ## Behind Nginx
 
@@ -87,5 +97,5 @@ ProxyTimeout 60
 ```
 git pull && npm ci && npm run build
 ./bin/websnapper db migrate
-sudo systemctl restart websnapper
+sudo systemctl restart websnapper   # or: pm2 restart websnapper
 ```

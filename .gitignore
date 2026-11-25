@@ -5,6 +5,9 @@ data/
 *.sqlite
 *.sqlite-*
 
+# Local copy of ecosystem.config.sample.cjs, edited per host.
+ecosystem.config.cjs
+
 # Working notes and code-analysis reports stay out of a github.com repo.
 dev-notes/
 code-analysis/

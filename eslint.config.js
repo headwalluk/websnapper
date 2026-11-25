@@ -27,4 +27,8 @@ export default typescript.config(
     files: ['src/config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly', __dirname: 'readonly' } },
+  },
 );

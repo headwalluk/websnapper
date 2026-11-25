@@ -17,5 +17,6 @@ All notable changes to this project are documented here. The format is based on
 - URL policy: open, allow-list or block-list of regular expressions, applied to redirects, frames
   and (optionally) every subresource. `config/private-networks.txt` blocks private addresses
 - Per-address rate limiting and automatic temporary bans, stored in SQLite
+- `ecosystem.config.sample.cjs` for running under PM2
 - `bin/websnapper`: `serve`, `snap`, `viewports`, `key`, `rule`, `ban`, `db`, `doctor`, `config`
 - Hourly housekeeping of expired bans
